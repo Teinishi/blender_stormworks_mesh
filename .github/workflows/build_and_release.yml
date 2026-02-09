@@ -1,0 +1,37 @@
+name: Build and Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Download Blender
+        run: |
+          BLENDER_VERSION="5.0.1"
+          BLENDER_ARCHIVE="blender-${BLENDER_VERSION}-linux-x64.tar.xz"
+          BLENDER_DIR_NAME="blender-${BLENDER_VERSION}-linux-x64"
+          wget "https://download.blender.org/release/Blender${BLENDER_VERSION%.*}/${BLENDER_ARCHIVE}"
+          tar -xf "${BLENDER_ARCHIVE}"
+          echo "$PWD/${BLENDER_DIR_NAME}" >> $GITHUB_PATH
+
+      - name: Build
+        run: |
+          mkdir dist
+          blender --command extension build --source-dir ./src --output-dir ./dist
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
+          tag_name: ${{ github.ref }}
+
