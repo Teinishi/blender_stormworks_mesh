@@ -9,7 +9,7 @@ on:
       - 'feature-workflow'
 
 jobs:
-  build:
+  build_and_release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -36,4 +36,6 @@ jobs:
         with:
           files: dist/*.zip
           tag_name: ${{ github.ref }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
