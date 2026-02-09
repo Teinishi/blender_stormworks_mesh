@@ -1,0 +1,9 @@
+[project]
+name = "blender_stormworks_mesh"
+version = "1.0.0"
+description = "Import/export add-on for Stormworks mesh (.mesh) and physics mesh (.phys)"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "fake-bpy-module>=20251003",
+]

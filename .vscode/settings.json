@@ -1,0 +1,6 @@
+{
+    "python.analysis.diagnosticSeverityOverrides": {
+        "reportInvalidTypeForm": false,
+        "reportIncompatibleMethodOverride": false
+    }
+}
