@@ -30,8 +30,9 @@ def execute(context: bpy.types.Context, fn):
 
 # File > Import > Import Stormworks Mesh (.mesh)
 class ImportStormworksMesh(Operator, ImportHelper):
-    bl_idname = 'blender_stormworks_mesh.import_mesh'
+    bl_idname = 'stormworks_mesh_io.import_mesh'
     bl_label = 'Import MESH'
+    bl_options = {'REGISTER', 'UNDO'}
     filename_ext = '.mesh'
 
     filter_glob: StringProperty(default='*.mesh', options={'HIDDEN'})
@@ -61,8 +62,9 @@ class ImportStormworksMesh(Operator, ImportHelper):
 
 # File > Import > Import Stormworks Physics Mesh (.phys)
 class ImportStormworksPhys(Operator, ImportHelper):
-    bl_idname = 'blender_stormworks_mesh.import_phys'
+    bl_idname = 'stormworks_mesh_io.import_phys'
     bl_label = 'Import PHYS'
+    bl_options = {'REGISTER', 'UNDO'}
     filename_ext = '.phys'
 
     filter_glob: StringProperty(default='*.phys', options={'HIDDEN'})
@@ -92,23 +94,24 @@ class ImportStormworksPhys(Operator, ImportHelper):
 
 # File > Export > Export Stormworks Mesh (.mesh)
 class ExportStormworksMesh(Operator, ExportHelper):
-    bl_idname = 'blender_stormworks_mesh.export_mesh'
+    bl_idname = 'stormworks_mesh_io.export_mesh'
     bl_label = 'Export MESH'
+    bl_options = {'REGISTER', 'UNDO'}
     filename_ext = '.mesh'
 
     filter_glob: StringProperty(default='*.mesh', options={'HIDDEN'})
 
-    use_selection: BoolProperty(
+    selected: BoolProperty(
         name='Selected Objects',
         description='Export selected objects only',
         default=False,
     )
-    use_transform: BoolProperty(
+    apply_transform: BoolProperty(
         name='Apply Object Transform',
         description='Apply object transform.',
         default=True,
     )
-    use_mesh_modifiers: BoolProperty(
+    apply_modifiers: BoolProperty(
         name='Apply Modifiers',
         description='Apply modifiers to exported mesh (non destructive).',
         default=True,
@@ -135,23 +138,24 @@ class ExportStormworksMesh(Operator, ExportHelper):
 
 # File > Export > Export Stormworks Physics Mesh (.phys)
 class ExportStormworksPhys(Operator, ExportHelper):
-    bl_idname = 'blender_stormworks_mesh.export_phys'
+    bl_idname = 'stormworks_mesh_io.export_phys'
     bl_label = 'Export PHYS'
+    bl_options = {'REGISTER', 'UNDO'}
     filename_ext = '.phys'
 
     filter_glob: StringProperty(default='*.phys', options={'HIDDEN'})
 
-    use_selection: BoolProperty(
+    selected: BoolProperty(
         name='Selected Objects',
         description='Export selected objects only',
         default=False,
     )
-    use_transform: BoolProperty(
+    apply_transform: BoolProperty(
         name='Apply Object Transform',
         description='Apply object transform.',
         default=True,
     )
-    use_mesh_modifiers: BoolProperty(
+    apply_modifiers: BoolProperty(
         name='Apply Modifiers',
         description='Apply modifiers to exported mesh (non destructive).',
         default=True,
