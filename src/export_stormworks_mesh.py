@@ -39,10 +39,10 @@ class _PolygonOptimizer(Generic[T]):
 
 
 @contextmanager
-def _evaluated_mesh(obj: bpy.types.Object, depsgraph: bpy.types.Depsgraph, use_transform=True, use_mesh_modifiers=True):
-    obj_eval = obj.evaluated_get(depsgraph) if use_mesh_modifiers else obj
+def _evaluated_mesh(obj: bpy.types.Object, depsgraph: bpy.types.Depsgraph, apply_transform=True, apply_modifiers=True):
+    obj_eval = obj.evaluated_get(depsgraph) if apply_modifiers else obj
     mesh = obj_eval.to_mesh(preserve_all_data_layers=True, depsgraph=depsgraph)
-    if use_transform:
+    if apply_transform:
         mesh.transform(obj.matrix_world)
 
     try:
@@ -51,14 +51,14 @@ def _evaluated_mesh(obj: bpy.types.Object, depsgraph: bpy.types.Depsgraph, use_t
         obj_eval.to_mesh_clear()
 
 
-def save_mesh(ctx_objects: list[bpy.types.Object], depsgraph: bpy.types.Depsgraph, filepath: str, use_transform=True, use_mesh_modifiers=True, name_mode: NameModeEnum = 'NONE'):
+def save_mesh(ctx_objects: list[bpy.types.Object], depsgraph: bpy.types.Depsgraph, filepath: str, apply_transform=True, apply_modifiers=True, name_mode: NameModeEnum = 'NONE'):
     submesh_triangles: dict[int, list[tuple[MeshVertex, ...]]] = {i: [] for i in range(4)}
     submesh_names: dict[int, str] = {}
 
     for obj in ctx_objects:
         if obj.type != 'MESH':
             continue
-        with _evaluated_mesh(obj, depsgraph, use_transform=use_transform, use_mesh_modifiers=use_mesh_modifiers) as mesh:
+        with _evaluated_mesh(obj, depsgraph, apply_transform=apply_transform, apply_modifiers=apply_modifiers) as mesh:
             # 三角面化
             bm = bmesh.new()
             bm.from_mesh(mesh)
@@ -122,13 +122,13 @@ def save_mesh(ctx_objects: list[bpy.types.Object], depsgraph: bpy.types.Depsgrap
         Mesh(poly_opt.vertices, poly_opt.indices, submeshes).to_writer(f)
 
 
-def save_phys(ctx_objects: list[bpy.types.Object], depsgraph: bpy.types.Depsgraph, filepath: str, use_transform=True, use_mesh_modifiers=True, divide_grid=True):
+def save_phys(ctx_objects: list[bpy.types.Object], depsgraph: bpy.types.Depsgraph, filepath: str, apply_transform=True, apply_modifiers=True, divide_grid=True):
     submesh_triangles: list[list[tuple[MeshVec3, ...]]] = []
 
     for obj in ctx_objects:
         if obj.type != 'MESH':
             continue
-        with _evaluated_mesh(obj, depsgraph, use_transform=use_transform, use_mesh_modifiers=use_mesh_modifiers) as mesh:
+        with _evaluated_mesh(obj, depsgraph, apply_transform=apply_transform, apply_modifiers=apply_modifiers) as mesh:
             if divide_grid:
                 # 128m のボクセルで分割
                 bounds_min, bounds_max = None, None
@@ -201,9 +201,9 @@ def save(
         mesh_type: MeshTypeEnum,
         context,
         filepath='',
-        use_selection=False,
-        use_transform=True,
-        use_mesh_modifiers=True,
+        selected=False,
+        apply_transform=True,
+        apply_modifiers=True,
         name_mode: NameModeEnum = 'NONE',
         divide_grid=True
 ):
@@ -217,7 +217,7 @@ def save(
     if bpy.ops.object.mode_set.poll(): # type: ignore
         bpy.ops.object.mode_set(mode='OBJECT')
 
-    if use_selection:
+    if selected:
         ctx_objects = context.selected_objects
     else:
         ctx_objects = context.view_layer.objects
@@ -225,9 +225,9 @@ def save(
     depsgraph = context.evaluated_depsgraph_get()
 
     if mesh_type == 'MESH':
-        save_mesh(ctx_objects, depsgraph, filepath, use_transform, use_mesh_modifiers, name_mode)
+        save_mesh(ctx_objects, depsgraph, filepath, apply_transform, apply_modifiers, name_mode)
     elif mesh_type == 'PHYS':
-        save_phys(ctx_objects, depsgraph, filepath, use_transform, use_mesh_modifiers, divide_grid)
+        save_phys(ctx_objects, depsgraph, filepath, apply_transform, apply_modifiers, divide_grid)
     else:
         return False
 
