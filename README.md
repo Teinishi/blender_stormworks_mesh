@@ -1,52 +1,55 @@
 # Blender add-on: Stormworks Mesh IO
-Stormworks 専用の3Dモデルファイル (.mesh) と地形ファイル (.phys) を Blender 上で直接インポート・エクスポートするアドオンです。中間形式 (.dae や .fbx) を経由して SDK の mesh_compiler を使用する方法に比べて作業が簡略化されるほか、Blender 5.0 以降では COLLADA (.dae) インポート・エクスポート機能が削除されているため、その代替でもあります。
 
-## インストール
-[リリース](https://github.com/Teinishi/blender_stormworks_mesh/releases) から最新の stormworks_mesh_io-\*.\*.\*.zip をダウンロードし、zip のまま Blender にドラッグ&ドロップしてインストールできます。
+This Blender add-on enables direct import and export of Stormworks 3D model files (.mesh) and terrain files (.phys). It simplifies work compared to using the SDK's mesh_compiler via intermediate formats (.dae or .fbx). It also serves as an alternative since COLLADA (.dae) import/export functionality has been removed in Blender 5.0 and later.
 
-## Blender Python API からの利用
-Blender Python API を用いた自動化に本アドオンの処理を組み込むことができます。
+## Installation
+
+Download the latest stormworks_mesh_io-\*.\*.\*.zip, and install it by dragging and dropping the zip file directly into Blender.
+
+## Using from Blender Python API
+
+You can integrate this add-on's functionality into automation using the Blender Python API.
 
 ```python
 bpy.ops.stormworks_mesh_io.import_mesh(*, filepath='', use_collection=False, strict_mode=True)
 ```
 
-.mesh ファイルをロードします。
+Load a .mesh file.
 
-- **filepath**: `str` - インポートするファイルのパス
-- **use_collection**: `bool` - ロードしたオブジェクトをコレクションにまとめる
-- **strict_mode**: `bool` - 厳格モード `True`のときファイルの内容の一部が通常と異なる場合にエラー、`False`のとき無視できるエラーは無視する
+- **filepath**: `str` - File path to import.
+- **use_collection**: `bool` - Whether to group loaded objects into a collection.
+- **strict_mode**: `bool` - When `True`, errors occur if the file contents differ from normal; when `False`, errors that can be ignored are ignored.
 
 ```python
 bpy.ops.stormworks_mesh_io.import_phys(*, filepath='', use_collection=False, strict_mode=True)
 ```
 
-.phys ファイルをロードします。
+Load a .phys file.
 
-- **filepath**: `str` - インポートするファイルのパス
-- **use_collection**: `bool` - ロードしたオブジェクトをコレクションにまとめる
-- **strict_mode**: `bool` - 厳格モード `True`のときファイルの内容の一部が通常と異なる場合にエラー、`False`のとき無視できるエラーは無視する
+- **filepath**: `str` - File path to import.
+- **use_collection**: `bool` - Whether to group loaded objects into a collection.
+- **strict_mode**: `bool` - When `True`, errors occur if the file contents differ from normal; when `False`, errors that can be ignored are ignored.
 
 ```python
 bpy.ops.stormworks_mesh_io.export_mesh(*, filepath='', selected=False, apply_transform=True, apply_modifiers=True, name_mode='NONE')
 ```
 
-.mesh ファイルをロードします。
+Save a .mesh file.
 
-- **filepath**: `str` - インポートするファイルのパス
-- **selected**: `bool` - 選択物のみ
-- **apply_transform**: `bool` - オブジェクトのトランスフォームを適用したものを出力
-- **apply_modifiers**: `bool` - モディファイアーを適用したものを出力
-- **name_mode**: `'MESH', 'OBJECT', 'MATERIAL', 'NONE'` - .mesh ファイルに埋め込むメッシュ名
+- **filepath**: `str` - File path to export.
+- **selected**: `bool` - Only export selected objects.
+- **apply_transform**: `bool` - Output the object with the transform applied.
+- **apply_modifiers**: `bool` - Output with modifiers applied.
+- **name_mode**: `'MESH', 'OBJECT', 'MATERIAL', 'NONE'` - The mesh name to embed in the .mesh file; if `‘NONE’`, no name is embedded
 
 ```python
 bpy.ops.stormworks_mesh_io.export_phys(*, filepath='', selected=False, apply_transform=True, apply_modifiers=True, divide_grid=True)
 ```
 
-.phys ファイルをロードします。
+Save a .phys file.
 
-- **filepath**: `str` - インポートするファイルのパス
-- **selected**: `bool` - 選択物のみ
-- **apply_transform**: `bool` - オブジェクトのトランスフォームを適用したものを出力
-- **apply_modifiers**: `bool` - モディファイアーを適用したものを出力
-- **divide_grid**: `bool` - 出力時に自動的に 128m ごとのグリッドで区切る
+- **filepath**: `str` - File path to export.
+- **selected**: `bool` - Only export selected objects.
+- **apply_transform**: `bool` - Output the object with the transform applied.
+- **apply_modifiers**: `bool` - Output with modifiers applied.
+- **divide_grid**: `bool` - As with regular .phys files, divide into 128m grids.
