@@ -3,7 +3,7 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - 'v*'
 
 jobs:
   build_and_release:
@@ -32,4 +32,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*.zip
+          draft: true
 

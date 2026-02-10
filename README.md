@@ -13,9 +13,9 @@ bpy.ops.stormworks_mesh_io.import_mesh(*, filepath='', use_collection=False, str
 
 .mesh ファイルをロードします。
 
-- **filepath**: str - インポートするファイルのパス
-- **use_collection**: bool - ロードしたオブジェクトをコレクションにまとめる
-- **strict_mode**: bool - 厳格モード `True`のときファイルの内容の一部が通常と異なる場合にエラー、`False`のとき無視できるエラーは無視する
+- **filepath**: `str` - インポートするファイルのパス
+- **use_collection**: `bool` - ロードしたオブジェクトをコレクションにまとめる
+- **strict_mode**: `bool` - 厳格モード `True`のときファイルの内容の一部が通常と異なる場合にエラー、`False`のとき無視できるエラーは無視する
 
 ```python
 bpy.ops.stormworks_mesh_io.import_phys(*, filepath='', use_collection=False, strict_mode=True)
@@ -23,7 +23,7 @@ bpy.ops.stormworks_mesh_io.import_phys(*, filepath='', use_collection=False, str
 
 .phys ファイルをロードします。
 
-- **filepath**: @ - インポートするファイルのパス
+- **filepath**: `str` - インポートするファイルのパス
 - **use_collection**: `bool` - ロードしたオブジェクトをコレクションにまとめる
 - **strict_mode**: `bool` - 厳格モード `True`のときファイルの内容の一部が通常と異なる場合にエラー、`False`のとき無視できるエラーは無視する
 
