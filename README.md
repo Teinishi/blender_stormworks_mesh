@@ -6,7 +6,7 @@ This Blender add-on enables direct import and export of Stormworks 3D model file
 
 ## Installation
 
-Download the latest stormworks_mesh_io-\*.\*.\*.zip, and install it by dragging and dropping the zip file directly into Blender.
+Download the latest stormworks_mesh_io-\*.\*.\*.zip from [Releases](https://github.com/Teinishi/blender_stormworks_mesh/releases), and install it by dragging and dropping the zip file directly into Blender.
 
 ## Using from Blender Python API
 
