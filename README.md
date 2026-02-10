@@ -1,5 +1,7 @@
 # Blender add-on: Stormworks Mesh IO
 
+English | [日本語](README.ja.md)
+
 This Blender add-on enables direct import and export of Stormworks 3D model files (.mesh) and terrain files (.phys). It simplifies work compared to using the SDK's mesh_compiler via intermediate formats (.dae or .fbx). It also serves as an alternative since COLLADA (.dae) import/export functionality has been removed in Blender 5.0 and later.
 
 ## Installation
