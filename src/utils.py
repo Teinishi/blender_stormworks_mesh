@@ -3,7 +3,7 @@ import mathutils
 
 from typing import Literal
 
-from .data_struct import SwVec3, SwColor
+from .data_struct import SwVec3, SwColor, SwMatrix3
 
 
 IntTuple3 = tuple[int, int, int]
@@ -22,6 +22,21 @@ OVERRIDE_COLOR_3 = SwColor(55, 125, 0, 255)
 
 def to_blender_vec(v: SwVec3) -> FloatTuple3:
     return (v.x, v.z, v.y)
+
+
+def to_blender_matrix(r: SwMatrix3, t: SwVec3):
+    '''return mathutils.Matrix([
+        [r.m[0], r.m[2], r.m[1], t.x],
+        [r.m[6], r.m[8], r.m[7], t.z],
+        [r.m[3], r.m[5], r.m[4], t.y],
+        [0, 0, 0, 1]
+    ])'''
+    return mathutils.Matrix([
+        [r.m[0], r.m[1], r.m[2], t.x],
+        [r.m[3], r.m[4], r.m[5], t.z],
+        [r.m[6], r.m[7], r.m[8], t.y],
+        [0, 0, 0, 1]
+    ])
 
 
 def to_blender_color(c: SwColor) -> FloatTuple4:

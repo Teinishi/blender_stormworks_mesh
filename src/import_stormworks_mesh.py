@@ -124,7 +124,7 @@ class _ObjectMaterialBuilder:
                     next_index = len(self.materials)
                     self.color_indices[color] = next_index
                     self.polygon_material.append(next_index)
-                    self.materials.append(_create_material(f'{self.name}_{len(self.color_indices) + 1:02}', color))
+                    self.materials.append(_create_material(f'{self.name}_{len(self.color_indices):02}', color))
 
     def finalize(self, collection: bpy.types.Collection):
         obj, mesh = _create_mesh_object(self.name, self.name, collection, self.vertices, self.triangles)
@@ -180,10 +180,84 @@ def load_anim(file, collection: bpy.types.Collection, name: str, strict_mode=Tru
         anim_data = Anim.from_reader(f, strict=strict_mode)
 
     # メッシュのインポート
-    obj_builder = _ObjectMaterialBuilder(name)
+    obj_builder = _ObjectMaterialBuilder(f'{name}_mesh')
     for anim_mesh in anim_data.meshes:
         obj_builder.add_submesh(anim_mesh.shader_id, anim_mesh.vertices, anim_mesh.indices)
-    obj_builder.finalize(collection)
+    mesh_obj, mesh = obj_builder.finalize(collection)
+
+    # アーマチュアを作成
+    arm_data = bpy.data.armatures.new(name)
+    arm_obj = bpy.data.objects.new(name, arm_data)
+
+    mesh_obj.parent = arm_obj
+    has_armature = any(m.type == 'ARMATURE' for m in mesh_obj.modifiers)
+    if not has_armature:
+        mod = mesh_obj.modifiers.new(name='Armature', type='ARMATURE')
+        mod.object = arm_obj # type: ignore
+
+    collection.objects.link(arm_obj)
+
+    # 編集モードに入る
+    if bpy.context.view_layer is None:
+        raise Exception('Unexpected error: bpy.context.view_layer is None')
+    bpy.context.view_layer.objects.active = arm_obj
+    bpy.ops.object.mode_set(mode='EDIT')
+
+    edit_bones = arm_data.edit_bones
+
+    # ボーンを作成
+    bone_matrices = {}
+    q = []
+    eb_list = []
+    vg_list = []
+    for i, b in enumerate(anim_data.bones):
+        eb = edit_bones.new(b.name)
+        eb_list.append(eb)
+
+        vg = mesh_obj.vertex_groups.new(name=b.name)
+        vg_list.append(vg)
+
+        if b.parent_index < 0:
+            bone_matrices[i] = to_blender_matrix(b.rotation, b.translation)
+            q += b.child_indices
+
+    # ボーンのグローバル行列を取得
+    while len(q) > 0:
+        j = q.pop(0)
+        child = anim_data.bones[j]
+        child_eb = eb_list[j]
+        parent_eb = eb_list[child.parent_index]
+        if child.parent_index not in bone_matrices:
+            raise Exception('Inconsistent bone parent-child relationships')
+
+        bone_matrices[j] = to_blender_matrix(child.rotation, child.translation) @ bone_matrices[child.parent_index]
+        child_eb.matrix = bone_matrices[j]
+        child_eb.parent = parent_eb
+        if len(anim_data.bones[child.parent_index].child_indices) == 1:
+            parent_eb.tail = child_eb.head
+
+        q += child.child_indices
+
+    # 頂点のボーンウェイトを登録
+    index_offset = 0
+    for anim_mesh in anim_data.meshes:
+        for i, vertex in enumerate(anim_mesh.vertices):
+            bone_index_weights = [
+                (int(vertex.bone_index_0), vertex.bone_weight_0),
+                (int(vertex.bone_index_1), vertex.bone_weight_1)
+            ]
+            for b, w in bone_index_weights:
+                if b >= len(anim_data.bones):
+                    raise Exception(f'Vertex bone index {b} is out of bounds. Only {len(anim_data.bones)} bones exist.')
+                if w > 0.0:
+                    vg_list[b].add([i + index_offset], w, 'REPLACE')
+        index_offset += len(anim_mesh.vertices)
+
+    for eb in eb_list:
+        if eb.length < 0.1:
+            eb.tail = eb.head + mathutils.Vector((0, 0, 0.1))
+
+    bpy.ops.object.mode_set(mode='OBJECT')
 
 
 def load(
