@@ -92,6 +92,38 @@ class ImportStormworksPhys(Operator, ImportHelper):
         return execute(context, lambda: import_stormworks_mesh.load('PHYS', context, **kwargs))
 
 
+# File > Import > Import Stormworks Anim (.anim)
+class ImportStormworksAnim(Operator, ImportHelper):
+    bl_idname = 'stormworks_mesh_io.import_anim'
+    bl_label = 'Import ANIM'
+    bl_options = {'REGISTER', 'UNDO'}
+    filename_ext = '.anim'
+
+    filter_glob: StringProperty(default='*.anim', options={'HIDDEN'})
+    files: CollectionProperty(
+        type=bpy.types.OperatorFileListElement,
+        options={'HIDDEN', 'SKIP_SAVE'}
+    )
+    directory: StringProperty(subtype='DIR_PATH')
+
+    use_collection: BoolProperty(
+        name='Collection',
+        description='Create a new collection',
+        default=False
+    )
+    strict_mode: BoolProperty(
+        name='Strict Mode',
+        default=True
+    )
+
+    def execute(self, context):
+        if not self.filepath: # type: ignore
+            raise Exception('filepath not set')
+
+        kwargs: dict = self.as_keywords(ignore=('filter_glob',)) # type: ignore
+        return execute(context, lambda: import_stormworks_mesh.load('ANIM', context, **kwargs))
+
+
 # File > Export > Export Stormworks Mesh (.mesh)
 class ExportStormworksMesh(Operator, ExportHelper):
     bl_idname = 'stormworks_mesh_io.export_mesh'
@@ -188,6 +220,13 @@ def menu_func_import_phys(self, context):
     )
 
 
+def menu_func_import_anim(self, context):
+    self.layout.operator(
+        ImportStormworksAnim.bl_idname,
+        text='Stormworks Animation (.anim)'
+    )
+
+
 def menu_func_export_mesh(self, context):
     self.layout.operator(
         ExportStormworksMesh.bl_idname,
@@ -206,6 +245,7 @@ def menu_func_export_phys(self, context):
 classes = (
     ImportStormworksMesh,
     ImportStormworksPhys,
+    ImportStormworksAnim,
     ExportStormworksMesh,
     ExportStormworksPhys,
 )
@@ -216,6 +256,7 @@ def register():
         bpy.utils.register_class(cls)
     bpy.types.TOPBAR_MT_file_import.append(menu_func_import_mesh)
     bpy.types.TOPBAR_MT_file_import.append(menu_func_import_phys)
+    bpy.types.TOPBAR_MT_file_import.append(menu_func_import_anim)
     bpy.types.TOPBAR_MT_file_export.append(menu_func_export_mesh)
     bpy.types.TOPBAR_MT_file_export.append(menu_func_export_phys)
 
@@ -223,6 +264,7 @@ def register():
 def unregister():
     bpy.types.TOPBAR_MT_file_import.remove(menu_func_import_mesh)
     bpy.types.TOPBAR_MT_file_import.remove(menu_func_import_phys)
+    bpy.types.TOPBAR_MT_file_import.remove(menu_func_import_anim)
     bpy.types.TOPBAR_MT_file_export.remove(menu_func_export_mesh)
     bpy.types.TOPBAR_MT_file_export.remove(menu_func_export_phys)
     for cls in classes:

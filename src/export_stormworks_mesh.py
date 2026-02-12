@@ -4,18 +4,18 @@ from typing import Generic, TypeVar
 import bpy
 import bmesh
 
-from .mesh_struct import MeshVec3, MeshVertex, SubMesh, Mesh, SubPhysMesh, PhysicsMesh
+from .data_struct import SwVec3, MeshVertex, SubMesh, Mesh, SubPhysMesh, PhysicsMesh
 from .utils import *
 
 
-def _vec_min(a: MeshVec3 | mathutils.Vector, b: MeshVec3 | mathutils.Vector | None) -> tuple[float, float, float]:
+def _vec_min(a: SwVec3 | mathutils.Vector, b: SwVec3 | mathutils.Vector | None) -> tuple[float, float, float]:
     if b is None:
         return (a.x, a.y, a.z)
     else:
         return (min(a.x, b.x), min(a.y, b.y), min(a.z, b.z))
 
 
-def _vec_max(a: MeshVec3 | mathutils.Vector, b: MeshVec3 | mathutils.Vector | None) -> tuple[float, float, float]:
+def _vec_max(a: SwVec3 | mathutils.Vector, b: SwVec3 | mathutils.Vector | None) -> tuple[float, float, float]:
     if b is None:
         return (a.x, a.y, a.z)
     else:
@@ -110,8 +110,8 @@ def save_mesh(ctx_objects: list[bpy.types.Object], depsgraph: bpy.types.Depsgrap
         bounds_min, bounds_max = None, None
         for triangle in triangles:
             for vertex in triangle:
-                bounds_min = MeshVec3(*_vec_min(vertex.position, bounds_min))
-                bounds_max = MeshVec3(*_vec_max(vertex.position, bounds_max))
+                bounds_min = SwVec3(*_vec_min(vertex.position, bounds_min))
+                bounds_max = SwVec3(*_vec_max(vertex.position, bounds_max))
                 poly_opt.add_vertex(vertex)
 
         if bounds_min is None or bounds_max is None:
@@ -123,7 +123,7 @@ def save_mesh(ctx_objects: list[bpy.types.Object], depsgraph: bpy.types.Depsgrap
 
 
 def save_phys(ctx_objects: list[bpy.types.Object], depsgraph: bpy.types.Depsgraph, filepath: str, apply_transform=True, apply_modifiers=True, divide_grid=True):
-    submesh_triangles: list[list[tuple[MeshVec3, ...]]] = []
+    submesh_triangles: list[list[tuple[SwVec3, ...]]] = []
 
     for obj in ctx_objects:
         if obj.type != 'MESH':
@@ -158,7 +158,7 @@ def save_phys(ctx_objects: list[bpy.types.Object], depsgraph: bpy.types.Depsgrap
                 bm.to_mesh(mesh)
                 bm.free()
 
-                voxel_triangles: dict[tuple[int, int, int], list[tuple[MeshVec3, ...]]] = {}
+                voxel_triangles: dict[tuple[int, int, int], list[tuple[SwVec3, ...]]] = {}
                 for face in mesh.polygons:
                     d = face.center - grid_origin
                     voxel_key = (int(d.x // grid_size.x), int(d.y // grid_size.y), int(d.z // grid_size.z))
@@ -177,7 +177,7 @@ def save_phys(ctx_objects: list[bpy.types.Object], depsgraph: bpy.types.Depsgrap
                 bm.to_mesh(mesh)
                 bm.free()
 
-                triangles: list[tuple[MeshVec3, ...]] = []
+                triangles: list[tuple[SwVec3, ...]] = []
                 for face in mesh.polygons:
                     triangles.append(tuple(from_blender_vec(mesh.vertices[v].co) for v in face.vertices[:3]))
 
@@ -185,7 +185,7 @@ def save_phys(ctx_objects: list[bpy.types.Object], depsgraph: bpy.types.Depsgrap
 
     sub_phys_meshes: list[SubPhysMesh] = []
     for triangles in submesh_triangles:
-        vertices: list[MeshVec3] = []
+        vertices: list[SwVec3] = []
 
         for triangle in triangles:
             for vertex in triangle:
