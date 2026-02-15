@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Iterable, Sequence
 
 import bpy
 
@@ -6,11 +7,11 @@ from .data_struct import SwColor, MeshVertex, Mesh, PhysicsMesh, AnimVertex, Ani
 from .utils import *
 
 
-def _create_mesh_object(obj_name: str, mesh_name: str, collection: bpy.types.Collection, vertices: list[FloatTuple3], triangles: list[IntTuple3], vertex_colors: list[FloatTuple4] | None = None, matrix=None):
+def _create_mesh_object(obj_name: str, mesh_name: str, collection: bpy.types.Collection, vertices: list[FloatTuple3] | list[mathutils.Vector], triangles: list[IntTuple3], vertex_colors: list[FloatTuple4] | None = None, matrix=None):
     mesh = bpy.data.meshes.new(mesh_name)
     obj = bpy.data.objects.new(obj_name, mesh)
     collection.objects.link(obj)
-    mesh.from_pydata(vertices, [], triangles)
+    mesh.from_pydata(vertices, [], triangles) # type: ignore
     mesh.update()
 
     if vertex_colors is not None:
@@ -36,6 +37,7 @@ def _create_material(name: str, color: SwColor):
 
     return material
 
+
 def _get_material(name: str, color: SwColor):
     material = bpy.data.materials.get(name)
     if material is None:
@@ -53,7 +55,7 @@ class _ObjectMaterialBuilder:
     override2_index: int | None = None
     override3_index: int | None = None
     color_indices: dict[SwColor, int]
-    vertices: list[FloatTuple3]
+    vertices: list[mathutils.Vector]
     triangles: list[IntTuple3]
     polygon_material: list[int]
 
@@ -137,6 +139,30 @@ class _ObjectMaterialBuilder:
         return (obj, mesh)
 
 
+def _resolve_bone_matrices(bone_parent_indices: list[int], local_matrices: list[mathutils.Matrix]):
+    resolved: dict[int, mathutils.Matrix] = {}
+    q = list(range(len(bone_parent_indices)))
+    while len(q) > 0:
+        i = q.pop(0)
+        p = bone_parent_indices[i]
+        m = local_matrices[i]
+        if p == -1:
+            resolved[i] = m
+        elif p in resolved:
+            resolved[i] = resolved[p] @ local_matrices[i]
+        else:
+            q.append(i)
+    return resolved
+
+
+def _set_timestamp(timestamp: int):
+    if bpy.context.scene is None:
+        raise Exception('Unexpected error')
+    t_start = bpy.context.scene.frame_start
+    t_end = bpy.context.scene.frame_end
+    bpy.context.scene.frame_set(round(t_start + (timestamp / 65535) * (t_end - t_start)))
+
+
 def load_mesh(file, collection: bpy.types.Collection, name: str, strict_mode=True):
     with open(file, 'rb') as f:
         mesh_data = Mesh.from_reader(f, strict=strict_mode)
@@ -179,6 +205,11 @@ def load_anim(file, collection: bpy.types.Collection, name: str, strict_mode=Tru
     with open(file, 'rb') as f:
         anim_data = Anim.from_reader(f, strict=strict_mode)
 
+    # ボーンの構造をチェック
+    is_valid, msg = validate_connected_tree({i: (b.parent_index, b.child_indices) for i, b in enumerate(anim_data.bones)})
+    if not is_valid:
+        raise Exception(f'Invalid bone structure: {msg}')
+
     # メッシュのインポート
     obj_builder = _ObjectMaterialBuilder(f'{name}_mesh')
     for anim_mesh in anim_data.meshes:
@@ -203,40 +234,25 @@ def load_anim(file, collection: bpy.types.Collection, name: str, strict_mode=Tru
     bpy.context.view_layer.objects.active = arm_obj
     bpy.ops.object.mode_set(mode='EDIT')
 
-    edit_bones = arm_data.edit_bones
-
     # ボーンを作成
-    bone_matrices = {}
-    q = []
-    eb_list = []
-    vg_list = []
+    bone_parent_indices = [b.parent_index for b in anim_data.bones]
+    bone_matrices = _resolve_bone_matrices(bone_parent_indices, [to_blender_transform_matrix(b.rotation, b.translation) for b in anim_data.bones])
+    edit_bones: list[bpy.types.EditBone] = []
+    vertex_groups: list[bpy.types.VertexGroup] = []
     for i, b in enumerate(anim_data.bones):
-        eb = edit_bones.new(b.name)
-        eb_list.append(eb)
+        eb = arm_data.edit_bones.new(b.name)
+        edit_bones.append(eb)
 
         vg = mesh_obj.vertex_groups.new(name=b.name)
-        vg_list.append(vg)
+        vertex_groups.append(vg)
 
-        if b.parent_index < 0:
-            bone_matrices[i] = to_blender_matrix(b.rotation, b.translation)
-            q += b.child_indices
+        eb.matrix = bone_matrices[i]
 
-    # ボーンのグローバル行列を取得
-    while len(q) > 0:
-        j = q.pop(0)
-        child = anim_data.bones[j]
-        child_eb = eb_list[j]
-        parent_eb = eb_list[child.parent_index]
-        if child.parent_index not in bone_matrices:
-            raise Exception('Inconsistent bone parent-child relationships')
-
-        bone_matrices[j] = to_blender_matrix(child.rotation, child.translation) @ bone_matrices[child.parent_index]
-        child_eb.matrix = bone_matrices[j]
-        child_eb.parent = parent_eb
-        if len(anim_data.bones[child.parent_index].child_indices) == 1:
-            parent_eb.tail = child_eb.head
-
-        q += child.child_indices
+    for b, eb in zip(anim_data.bones, edit_bones):
+        if b.parent_index >= 0:
+            eb.parent = edit_bones[b.parent_index]
+        if len(b.child_indices) >= 1:
+            eb.tail = edit_bones[b.child_indices[0]].head
 
     # 頂点のボーンウェイトを登録
     index_offset = 0
@@ -250,14 +266,107 @@ def load_anim(file, collection: bpy.types.Collection, name: str, strict_mode=Tru
                 if b >= len(anim_data.bones):
                     raise Exception(f'Vertex bone index {b} is out of bounds. Only {len(anim_data.bones)} bones exist.')
                 if w > 0.0:
-                    vg_list[b].add([i + index_offset], w, 'REPLACE')
+                    vertex_groups[b].add([i + index_offset], w, 'REPLACE')
         index_offset += len(anim_mesh.vertices)
 
-    for eb in eb_list:
-        if eb.length < 0.1:
-            eb.tail = eb.head + mathutils.Vector((0, 0, 0.1))
+    # 末端ボーン等の大きさを設定
+    for eb, vg in zip(edit_bones, vertex_groups):
+        if eb.length < 0.01:
+            bone_head = eb.head
+            furthest_vertex: tuple[float, mathutils.Vector] | None = None
 
-    bpy.ops.object.mode_set(mode='OBJECT')
+            for vertex in mesh.vertices:
+                for vgel in vertex.groups:
+                    if vg.index != vgel.group:
+                        continue
+                    d = (vertex.co - bone_head).length
+                    if furthest_vertex is None or furthest_vertex[0] < d:
+                        furthest_vertex = (d, vertex.co)
+                    break
+
+            if furthest_vertex is None:
+                eb.tail = bone_head + mathutils.Vector((0, 0, 0.1))
+            else:
+                eb.tail = furthest_vertex[1]
+
+    '''
+    bpy.ops.object.mode_set(mode='POSE')
+
+    pose_data: dict[str, list[tuple[mathutils.Quaternion, mathutils.Vector]]] = {}
+    for p in anim_data.poses:
+        #print(p.name)
+        pose_data[p.name] = [(to_blender_rotation_matrix(r).to_quaternion(), to_blender_vec(t)) for r, t in p.bone_transforms]
+
+    # キーフレームをインポート
+    if arm_obj.pose is None or bpy.context.scene is None:
+        raise Exception('Unexpected error')
+    pb_list = arm_obj.pose.bones
+    o_frame = bpy.context.scene.frame_current
+
+    for motion in anim_data.motions[:1]:
+        #base_pose = pose_data[motion.name]
+        bone_motion_dict = {b.bone_index: b for b in motion.bone_motions}
+
+        # ルートから順番に処理、親の回転が確定していることを保証
+        q: list[int] = [i for i, b in enumerate(anim_data.bones) if b.parent_index < 0]
+        while len(q) > 0:
+            bone_index = q.pop(0)
+            q.extend(anim_data.bones[bone_index].child_indices)
+
+            parent_index = anim_data.bones[bone_index].parent_index
+            bone_motion = bone_motion_dict[bone_index]
+            pb = pb_list[bone_index]
+
+            if parent_index < 0:
+                parent_rot_inv = mathutils.Quaternion()
+            else:
+                parent_rot_inv = pb.bone.matrix_local.to_quaternion().inverted()
+
+            # 位置を適用
+            # anim ファイルはグローバル系、Blender は親ボーンのローカル系
+            for tkf in bone_motion.translation_keyframes:
+                _set_timestamp(tkf.timestamp)
+                pb.location = parent_rot_inv @ to_blender_vec(tkf.translation)
+                pb.keyframe_insert('location')
+
+            # 回転を適用
+            prev_rot = None
+            for rkf in bone_motion.rotation_keyframes:
+                _set_timestamp(rkf.timestamp)
+                rot = to_blender_quaternion(rkf.rotation)
+                # 逆回転防止
+                if prev_rot is not None and prev_rot.dot(rot) < 0:
+                    rot.negate()
+                pb.rotation_quaternion = rot
+                pb.keyframe_insert('rotation_quaternion')
+                prev_rot = rot
+
+    bpy.context.scene.frame_set(o_frame)
+    '''
+
+    '''
+    # ポーズをインポート
+    for pose_data in anim_data.poses:
+        print(pose_data.name)
+        action = bpy.data.actions.new(pose_data.name)
+        arm_anim = arm_obj.animation_data_create()
+        arm_anim.action = action
+
+        bone_matrices = _resolve_bone_matrices(bone_parent_indices, [to_blender_matrix(r, t) for r, t in pose_data.bone_transforms])
+
+        for i in range(len(anim_data.bones)):
+            if arm_obj.pose is None or i >= len(arm_obj.pose.bones):
+                continue
+            pb = arm_obj.pose.bones[i]
+            pb.matrix = bone_matrices[i]
+
+            pb.keyframe_insert('location', frame=0)
+            pb.keyframe_insert('rotation_quaternion', frame=0)
+            pb.keyframe_insert('scale', frame=0)
+
+        action.use_fake_user = True'''
+
+    #bpy.ops.object.mode_set(mode='OBJECT')
 
 
 def load(

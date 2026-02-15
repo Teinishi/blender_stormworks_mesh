@@ -216,30 +216,26 @@ class Mesh:
 @dataclass(frozen=True)
 class SubPhysMesh:
     vertices: list[SwVec3]
-    indices: list[int]
 
     @staticmethod
-    def from_reader(reader: BufferedReader):
+    def from_reader(reader: BufferedReader, strict=True):
         vertex_count = _read_ushort(reader)
         vertices = []
         for _ in range(vertex_count):
             vertices.append(SwVec3.from_reader(reader))
 
         index_count = _read_ushort(reader)
-        indices = []
-        for _ in range(index_count):
-            indices.append(_read_unpack(reader, '<I'))
+        if strict and index_count != 0:
+            raise ValueError(f'Unexpected value')
 
-        return SubPhysMesh(vertices, indices)
+        return SubPhysMesh(vertices)
 
     def to_writer(self, writer: BufferedWriter):
         _pack_write(writer, '<H', len(self.vertices))
         for vertex in self.vertices:
             vertex.to_writer(writer)
 
-        _pack_write(writer, '<H', len(self.indices))
-        for index in self.indices:
-            _pack_write(writer, '<I', index)
+        _pack_write(writer, '<H', 0)
 
 
 @dataclass(frozen=True)
@@ -257,7 +253,7 @@ class PhysicsMesh:
 
         sub_phys_meshes = []
         for _ in range(sub_phys_count):
-            sub_phys_meshes.append(SubPhysMesh.from_reader(reader))
+            sub_phys_meshes.append(SubPhysMesh.from_reader(reader, strict))
 
         return PhysicsMesh(sub_phys_meshes)
 
@@ -305,7 +301,7 @@ class AnimMesh:
 
     @staticmethod
     def from_reader(reader: BufferedReader, strict=True):
-        h0, h1, h2 = _read_unpack(reader, '<IIH')
+        h0, shader_id, h2 = _read_unpack(reader, '<IIH')
         if strict and h0 != 151:
             raise Exception('Unexpected value')
         if strict and h2 != 0:
@@ -326,7 +322,7 @@ class AnimMesh:
         for _ in range(indices_size // 4):
             indices.append(_read_uint(reader))
 
-        return AnimMesh(h1, vertices, indices)
+        return AnimMesh(shader_id, vertices, indices)
 
 
 @dataclass(frozen=True)
@@ -396,10 +392,10 @@ class RotationKeyframe:
 
 
 @dataclass(frozen=True)
-class BoneAnimation:
+class BoneMotion:
     bone_index: int
-    translations: list[TranslationKeyframe]
-    rotations: list[RotationKeyframe]
+    translation_keyframes: list[TranslationKeyframe]
+    rotation_keyframes: list[RotationKeyframe]
 
     @staticmethod
     def from_reader(reader: BufferedReader):
@@ -415,13 +411,13 @@ class BoneAnimation:
         for _ in range(n_rotations):
             rotations.append(RotationKeyframe.from_reader(reader))
 
-        return BoneAnimation(bone_index, translations, rotations)
+        return BoneMotion(bone_index, translations, rotations)
 
 
 @dataclass(frozen=True)
-class Animation:
+class Motion:
     name: str
-    bone_animations: list[BoneAnimation]
+    bone_motions: list[BoneMotion]
 
     @staticmethod
     def from_reader(reader: BufferedReader):
@@ -430,9 +426,9 @@ class Animation:
         n_bones = _read_uint(reader)
         bone_animations = []
         for _ in range(n_bones):
-            bone_animations.append(BoneAnimation.from_reader(reader))
+            bone_animations.append(BoneMotion.from_reader(reader))
 
-        return Animation(name, bone_animations)
+        return Motion(name, bone_animations)
 
 
 @dataclass
@@ -464,7 +460,7 @@ class Anim:
     meshes: list[AnimMesh]
     bones: list[Bone]
     poses: list[Pose]
-    animations: list[Animation]
+    motions: list[Motion]
     data3s: list[Data3]
 
     @staticmethod
@@ -492,7 +488,7 @@ class Anim:
         n_animations = _read_uint(reader)
         animations = []
         for _ in range(n_animations):
-            animations.append(Animation.from_reader(reader))
+            animations.append(Motion.from_reader(reader))
 
         n_data3s = _read_uint(reader)
         data3s = []
